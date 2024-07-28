@@ -49,7 +49,7 @@ class SupportEmbedCommand : InitializingBean
                         style = ButtonStyle.SUCCESS
                     ),
                     button(
-                        "trasnactions",
+                        "transactions",
                         emoji = Emoji.fromUnicode("\uD83D\uDCB0"),
                         label = "Transactions",
                         style = ButtonStyle.SUCCESS

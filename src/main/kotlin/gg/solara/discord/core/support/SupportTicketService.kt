@@ -3,9 +3,11 @@ package gg.solara.discord.core.support
 import dev.minn.jda.ktx.events.listener
 import dev.minn.jda.ktx.interactions.components.Modal
 import dev.minn.jda.ktx.messages.Embed
+import gg.solara.discord.core.retrofit.tebex.TebexService
 import gg.solara.discord.core.utilities.Colors
 import gg.solara.discord.core.utilities.snowflake
 import gg.solara.discord.core.utilities.subscribeToModal
+import gg.solara.discord.core.utilities.toUuidDashed
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Guild
@@ -17,8 +19,10 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.interactions.modals.Modal
 import org.springframework.beans.factory.InitializingBean
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
 import java.security.SecureRandom
+import java.util.concurrent.TimeUnit
 
 /**
  * @author GrowlyX
@@ -27,6 +31,8 @@ import java.security.SecureRandom
 @Service
 class SupportTicketService(
     private val supportTicketRepository: SupportTicketRepository,
+    private val redisTemplate: RedisTemplate<String, String>,
+    private val tebexService: TebexService,
     private val discord: JDA
 ) : InitializingBean
 {
@@ -65,22 +71,99 @@ class SupportTicketService(
             "general",
             Modal(
                 "general-support",
-                "General Support Ticket"
+                "General Support"
             ) {
                 short("username", "In-Game Username", requiredLength = 1..16, required = true)
-                short("topic", "Topic", required = true)
+                paragraph("topic", "Topic", required = true)
             }
         ) {
+            val username = getValue("username")?.asString ?: "none"
+            val uniqueId = redisTemplate.opsForHash<String, String>()
+                .get(
+                    "DataStore:UuidCache:Username",
+                    username.lowercase()
+                )
+
+            if (uniqueId == null)
+            {
+                replyEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "No Account"
+                    description = "We found no in-game account with the username you defined!"
+                }).setEphemeral(true).queue()
+                return@buildSupportResponseToButton
+            }
+
             createNewTicket {
                 sendMessageEmbeds(Embed {
                     color = Colors.Primary
                     title = "Topic"
+
                     description = getValue("topic")?.asString ?: "none"
+                    thumbnail = "https://skins.mcstats.com/bust/$uniqueId"
 
                     footer {
-                        name = "Created by ${getValue("username")?.asString ?: "none"}"
+                        name = "Created by $username"
                     }
-                })
+                }).queue()
+            }
+        }
+
+        buildSupportResponseToButton(
+            "transactions",
+            Modal(
+                "transactions-support",
+                "Transaction Support"
+            ) {
+                short("txn-id", "Transaction ID")
+                paragraph("problem", "Problem", required = true)
+            }
+        ) {
+            val transactionID = getValue("txn-id")?.asString ?: "none"
+
+            val transaction = tebexService.transaction(transactionID).execute().body()
+            if (transaction == null)
+            {
+                replyEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "No Transaction"
+                    description = "We found no transaction with the transaction ID you defined!"
+                }).setEphemeral(true).queue()
+                return@buildSupportResponseToButton
+            }
+
+            if (transaction.status == "Chargeback")
+            {
+                replyEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "Illegal Transaction"
+                    description = "You have a chargeback transaction! You are blacklisted from transaction support."
+                }).setEphemeral(true).queue()
+                return@buildSupportResponseToButton
+            }
+
+            createNewTicket {
+                sendMessageEmbeds(Embed {
+                    color = Colors.Primary
+                    title = "Transaction Details"
+                    thumbnail = "https://skins.mcstats.com/bust/${
+                        transaction.player.uuid.toUuidDashed()
+                    }"
+
+                    field("Price") {
+                        inline = true
+                        value = "${transaction.currency.symbol}${transaction.amount} ${transaction.currency.iso4217}"
+                    }
+
+                    field("Purchased") {
+                        inline = true
+                        value = transaction.packages.joinToString(", ") { it.name }
+                    }
+
+                    footer {
+                        name = "Created by ${transaction.player.name} | ${transaction.date}"
+                    }
+                }).queue()
             }
         }
     }
@@ -146,7 +229,7 @@ class SupportTicketService(
                     .forEach {
                         addRolePermissionOverride(
                             it,
-                            listOf(Permission.VIEW_CHANNEL, Permission.MESSAGE_MANAGE),
+                            listOf(Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY, Permission.MESSAGE_SEND, Permission.MESSAGE_MANAGE),
                             listOf()
                         )
                     }
@@ -169,14 +252,24 @@ class SupportTicketService(
                     ownerID = user.idLong
                 )
 
-                postConstruct(textChannel)
+                textChannel.sendMessageEmbeds(Embed {
+                    color = Colors.Primary
+                    title = "Welcome"
+                    description = "A support representative will be with you soon."
+                }).queue {
+                    postConstruct(textChannel)
+                }
 
                 supportTicketRepository.save(supportTicket)
                 hook.sendMessageEmbeds(Embed {
                     color = Colors.Success
                     title = "Ticket Created"
                     description = "View your new ticket at: ${textChannel.asMention}"
-                }).queue()
+                }).queue {
+                    textChannel
+                        .sendMessage("@here")
+                        .queueAfter(2L, TimeUnit.SECONDS)
+                }
             }
     }
 }

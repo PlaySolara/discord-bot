@@ -1,7 +1,5 @@
 package gg.solara.discord.core.retrofit.tebex
 
-import gg.solara.discord.core.retrofit.tebex.PackageDetail
-import gg.solara.discord.core.retrofit.tebex.Transaction
 import retrofit2.Call
 import retrofit2.http.GET
 import retrofit2.http.Path

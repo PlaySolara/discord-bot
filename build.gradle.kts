@@ -45,6 +45,7 @@ dependencies {
     implementation("org.apache.commons:commons-lang3:3.14.0")
     implementation("io.github.oshai:kotlin-logging-jvm:5.1.0")
 
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
     implementation("org.springframework.boot:spring-boot-starter-data-rest")
     implementation("org.springframework.boot:spring-boot-starter-jersey")

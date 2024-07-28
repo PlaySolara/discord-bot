@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: solara
+  data:
+    mongodb:
+      uri: "CHANGE"
+      database: "Scala"
+  web:
+    resources:
+      add-mappings: false
+server:
+  error:
+    whitelabel:
+      enabled: false
+solara:
+  support:
+    categories: "1267214017248755854,1267213361574056068,1267213374564073503,1267213384210972755"
+    roles: "1265879998162796546,1265879962381189130,1265879722282192916,1265879638333460511"
+  discord:
+    guild: "1265729442551169094"
+    token: "CHANGE"
+  tebex:
+    apikey: "d81036ff8350199b24774ce049453698195db78a"
+logging:
+  level:
+    root: info
+management:
+  health:
+    mongo:
+      enabled: false

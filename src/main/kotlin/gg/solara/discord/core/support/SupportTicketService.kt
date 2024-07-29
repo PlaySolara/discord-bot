@@ -129,6 +129,20 @@ class SupportTicketService(
                 return@listener
             }
 
+            val availableClaimRoles = supportTicket.roleIDs
+                .split(",")
+                .map { role -> role.toLong() }
+
+            if (it.member!!.roles.none { role -> role.idLong in availableClaimRoles })
+            {
+                it.hook.sendMessageEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "No Permission"
+                    description = "You do not have permission to use this feature!"
+                }).queue()
+                return@listener
+            }
+
             supportTicket.assignedToUser = it.user.idLong
             supportTicketRepository.save(supportTicket)
 

@@ -221,7 +221,7 @@ class SupportTicketService(
                 embed {
                     color = Colors.Gold
                     title = "\uD83C\uDFA5 Media Applications"
-                    description = "Refer to the image below for our media applications!"
+                    description = "Refer to the image for our media applications!"
                 }
                 files += FileUpload.fromData(File("assets", "requirements.png"))
             }).setEphemeral(true).queue()

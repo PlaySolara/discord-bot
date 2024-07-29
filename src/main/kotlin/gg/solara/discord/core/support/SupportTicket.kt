@@ -14,5 +14,6 @@ data class SupportTicket(
     @Id val id: Long = snowflake(),
     @Indexed val channelID: Long,
     @Indexed val ownerID: Long,
+    val roleIDs: String,
     @Indexed var assignedToUser: Long? = null
 )

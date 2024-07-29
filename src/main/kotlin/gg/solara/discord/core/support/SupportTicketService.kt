@@ -44,11 +44,11 @@ class SupportTicketService(
     private val discord: JDA
 ) : InitializingBean
 {
-    @Value("\${solara.support.roles}")
-    lateinit var supportRoleIDs: String
+    @Value("\${solara.support.roles.general}") lateinit var generalSupportRoleIDs: String
+    @Value("\${solara.support.roles.punishments}") lateinit var punishmentsSupportRoleIDs: String
+    @Value("\${solara.support.roles.transactions}") lateinit var transactionsSupportRoleIDs: String
 
-    @Value("\${solara.support.categories}")
-    lateinit var supportCategoryIDs: String
+    @Value("\${solara.support.categories}") lateinit var supportCategoryIDs: String
 
     private val dateFormat = SimpleDateFormat("MMM dd, yyyy, hh:mm:ss a")
     override fun afterPropertiesSet()
@@ -138,7 +138,7 @@ class SupportTicketService(
                     Permission.MESSAGE_MANAGE
                 )
                 .queue { _ ->
-                    supportRoleIDs.split(",")
+                    supportTicket.roleIDs.split(",")
                         .map { role -> role.toLong() }
                         .forEach { role ->
                             val idRole = it.guildChannel.guild.getRoleById(role)
@@ -210,7 +210,7 @@ class SupportTicketService(
                 return@buildSupportResponseToButton
             }
 
-            createNewTicket {
+            createNewTicket(generalSupportRoleIDs) {
                 sendMessageEmbeds(Embed {
                     color = Colors.Primary
                     title = "Topic"
@@ -258,7 +258,7 @@ class SupportTicketService(
                 return@buildSupportResponseToButton
             }
 
-            createNewTicket {
+            createNewTicket(transactionsSupportRoleIDs) {
                 sendMessageEmbeds(Embed {
                     color = Colors.Primary
                     title = "Transaction Details"
@@ -308,7 +308,7 @@ class SupportTicketService(
                 return@buildSupportResponseToButton
             }
 
-            createNewTicket {
+            createNewTicket(punishmentsSupportRoleIDs) {
                 sendMessageEmbeds(Embed {
                     color = Colors.Primary
                     title = "Punishment Details"
@@ -372,7 +372,7 @@ class SupportTicketService(
         return null
     }
 
-    fun ModalInteractionEvent.createNewTicket(autonomous: Boolean = false, postConstruct: TextChannel.() -> Unit)
+    fun ModalInteractionEvent.createNewTicket(roleIDs: String, autonomous: Boolean = false, postConstruct: TextChannel.() -> Unit)
     {
         deferReply(true).queue()
 
@@ -413,7 +413,7 @@ class SupportTicketService(
                     return@apply
                 }
 
-                supportRoleIDs.split(",")
+                roleIDs.split(",")
                     .map { it.toLong() }
                     .forEach {
                         addRolePermissionOverride(
@@ -443,6 +443,7 @@ class SupportTicketService(
                 val supportTicket = SupportTicket(
                     id = supportTicketID,
                     channelID = textChannel.idLong,
+                    roleIDs = roleIDs,
                     ownerID = user.idLong
                 )
 

@@ -55,10 +55,25 @@ class SupportEmbedCommand : InitializingBean
                         style = ButtonStyle.SUCCESS
                     ),
                     button(
-                        "punishment",
-                        emoji = Emoji.fromUnicode("\uD83D\uDC6E"),
+                        "punishments",
+                        emoji = Emoji.fromUnicode("\uD83D\uDEA8"),
                         label = "Punishments",
                         style = ButtonStyle.SUCCESS
+                    )
+                )
+
+                actionRow(
+                    button(
+                        "staff-application",
+                        emoji = Emoji.fromUnicode("\uD83D\uDC6E"),
+                        label = "Apply for Staff",
+                        style = ButtonStyle.PRIMARY
+                    ),
+                    button(
+                        "media-application",
+                        emoji = Emoji.fromUnicode("\uD83D\uDCF9"),
+                        label = "Apply for Media",
+                        style = ButtonStyle.PRIMARY
                     )
                 )
             }).queue()

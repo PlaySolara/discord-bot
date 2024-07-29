@@ -3,6 +3,7 @@ package gg.solara.discord.core.support
 import dev.minn.jda.ktx.events.listener
 import dev.minn.jda.ktx.interactions.components.Modal
 import dev.minn.jda.ktx.messages.Embed
+import gg.solara.discord.core.punishments.PunishmentRepository
 import gg.solara.discord.core.retrofit.tebex.TebexService
 import gg.solara.discord.core.utilities.Colors
 import gg.solara.discord.core.utilities.snowflake
@@ -31,6 +32,7 @@ import java.util.concurrent.TimeUnit
 @Service
 class SupportTicketService(
     private val supportTicketRepository: SupportTicketRepository,
+    private val punishmentRepository: PunishmentRepository,
     private val redisTemplate: RedisTemplate<String, String>,
     private val tebexService: TebexService,
     private val discord: JDA
@@ -162,6 +164,69 @@ class SupportTicketService(
 
                     footer {
                         name = "Created by ${transaction.player.name} | ${transaction.date}"
+                    }
+                }).queue()
+            }
+        }
+
+        buildSupportResponseToButton(
+            "punishments",
+            Modal(
+                "punishment-support",
+                "Punishment Support"
+            ) {
+                short("punishment-id", "Punishment ID", requiredLength = 8..9)
+                short("unfair", "Respond if your punishment was unfair.")
+                paragraph("problem", "If yes, why?")
+            }
+        ) {
+            val punishmentID = (getValue("punishment-id")?.asString ?: "none").removePrefix("#")
+            val punishment = punishmentRepository.findByIdStartingWith(punishmentID)
+            if (punishment == null)
+            {
+                replyEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "No Punishment ID"
+                    description = "We found no punishment with the ID you defined! Make sure you provide all of the letters and numbers in proper fashion!"
+                }).setEphemeral(true).queue()
+                return@buildSupportResponseToButton
+            }
+
+            createNewTicket {
+                sendMessageEmbeds(Embed {
+                    color = Colors.Primary
+                    title = "Punishment Details"
+                    thumbnail = "https://skins.mcstats.com/bust/${
+                        punishment.target
+                    }"
+
+                    description = ""
+                    getValue("unfair")?.apply {
+                        description += "**User believes the punishment is unfair!**"
+
+                        getValue("problem")?.apply {
+                            description += asString
+                        }
+                    }
+
+                    field("Added At") {
+                        inline = true
+                        value = punishment.addedAt
+                    }
+
+                    field("Reason") {
+                        inline = true
+                        value = punishment.addedReason
+                    }
+
+                    val username = redisTemplate.opsForHash<String, String>()
+                        .get(
+                            "DataStore:UuidCache:UniqueId",
+                            punishment.target
+                        )
+
+                    footer {
+                        name = "Against $username"
                     }
                 }).queue()
             }

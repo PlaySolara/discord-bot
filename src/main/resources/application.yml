@@ -14,6 +14,9 @@ server:
     whitelabel:
       enabled: false
 solara:
+  applications:
+    staff:
+      google-docs-link: "https://forms.gle/iA4jh9rtEWPwPsh99"
   support:
     categories: "1267214017248755854,1267213361574056068,1267213374564073503,1267213384210972755"
     roles:

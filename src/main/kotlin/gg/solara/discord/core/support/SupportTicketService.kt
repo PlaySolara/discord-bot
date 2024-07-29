@@ -22,10 +22,12 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.interactions.components.buttons.ButtonStyle
 import net.dv8tion.jda.api.interactions.modals.Modal
+import net.dv8tion.jda.api.utils.FileUpload
 import org.springframework.beans.factory.InitializingBean
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
+import java.io.File
 import java.security.SecureRandom
 import java.text.SimpleDateFormat
 import java.util.*
@@ -47,6 +49,7 @@ class SupportTicketService(
     @Value("\${solara.support.roles.general}") lateinit var generalSupportRoleIDs: String
     @Value("\${solara.support.roles.punishments}") lateinit var punishmentsSupportRoleIDs: String
     @Value("\${solara.support.roles.transactions}") lateinit var transactionsSupportRoleIDs: String
+    @Value("\${solara.applications.staff.google-docs-link}") lateinit var staffApplicationsLink: String
 
     @Value("\${solara.support.categories}") lateinit var supportCategoryIDs: String
 
@@ -181,6 +184,47 @@ class SupportTicketService(
             }
 
             discord.subscribeToModal(modal.id, interaction)
+        }
+
+        discord.listener<ButtonInteractionEvent> {
+            if (it.button.id != "staff-application")
+            {
+                return@listener
+            }
+
+            it.replyEmbeds(Embed {
+                color = Colors.Gold
+                title = "\uD83D\uDCDC Staff Applications"
+                description = """
+                    Requirements:
+                    - Must be at least 15 years of age.
+                    - Must have prior moderation experience.
+                    - Must be mature and responsible.
+                    - Must be active both In-Game and In-Discord.
+                    - Must maintain a professional demeanor.
+                    - Must be fluent in English.
+
+                    If you meet these requirements and are ready to contribute to our awesome community, we want to hear from you!
+
+                    Apply here: [Staff Applications]($staffApplicationsLink)
+                """.trimIndent()
+            }).setEphemeral(true).queue()
+        }
+
+        discord.listener<ButtonInteractionEvent> {
+            if (it.button.id != "media-application")
+            {
+                return@listener
+            }
+
+            it.reply(MessageCreate {
+                embed {
+                    color = Colors.Gold
+                    title = "\uD83C\uDFA5 Media Applications"
+                    description = "Refer to the image below for our media applications!"
+                }
+                files += FileUpload.fromData(File("assets", "requirements.png"))
+            }).setEphemeral(true).queue()
         }
 
         buildSupportResponseToButton(

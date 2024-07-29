@@ -13,5 +13,6 @@ import org.springframework.data.mongodb.core.mapping.Document
 data class SupportTicket(
     @Id val id: Long = snowflake(),
     @Indexed val channelID: Long,
-    @Indexed val ownerID: Long
+    @Indexed val ownerID: Long,
+    @Indexed var assignedToUser: Long? = null
 )

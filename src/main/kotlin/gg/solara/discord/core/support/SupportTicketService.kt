@@ -2,7 +2,9 @@ package gg.solara.discord.core.support
 
 import dev.minn.jda.ktx.events.listener
 import dev.minn.jda.ktx.interactions.components.Modal
+import dev.minn.jda.ktx.interactions.components.button
 import dev.minn.jda.ktx.messages.Embed
+import dev.minn.jda.ktx.messages.MessageCreate
 import gg.solara.discord.core.punishments.PunishmentRepository
 import gg.solara.discord.core.retrofit.tebex.TebexService
 import gg.solara.discord.core.utilities.Colors
@@ -14,15 +16,19 @@ import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.channel.concrete.Category
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
+import net.dv8tion.jda.api.entities.emoji.Emoji
 import net.dv8tion.jda.api.events.channel.ChannelDeleteEvent
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
+import net.dv8tion.jda.api.interactions.components.buttons.ButtonStyle
 import net.dv8tion.jda.api.interactions.modals.Modal
 import org.springframework.beans.factory.InitializingBean
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
 import java.security.SecureRandom
+import java.text.SimpleDateFormat
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 /**
@@ -38,9 +44,13 @@ class SupportTicketService(
     private val discord: JDA
 ) : InitializingBean
 {
-    @Value("\${solara.support.roles}") lateinit var supportRoleIDs: String
-    @Value("\${solara.support.categories}") lateinit var supportCategoryIDs: String
+    @Value("\${solara.support.roles}")
+    lateinit var supportRoleIDs: String
 
+    @Value("\${solara.support.categories}")
+    lateinit var supportCategoryIDs: String
+
+    private val dateFormat = SimpleDateFormat("MMM dd, yyyy, hh:mm:ss a")
     override fun afterPropertiesSet()
     {
         discord.listener<ChannelDeleteEvent> {
@@ -49,6 +59,110 @@ class SupportTicketService(
                 ?: return@listener
 
             supportTicketRepository.delete(supportTicket)
+        }
+
+        discord.listener<ButtonInteractionEvent> { event ->
+            if (event.button.id != "ticket-close")
+            {
+                return@listener
+            }
+
+            val supportTicket = supportTicketRepository.findByChannelID(event.channelIdLong)
+            if (supportTicket == null)
+            {
+                event.replyEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "Not A Ticket"
+                    description = "This channel is not a ticket channel!"
+                }).queue()
+                return@listener
+            }
+
+            if (supportTicket.assignedToUser != null && supportTicket.assignedToUser != event.user.idLong)
+            {
+                event.replyEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "Claimed"
+                    description = "You cannot close this ticket! Only staff members can close this ticket with the `/close` command."
+                }).queue()
+                return@listener
+            }
+
+            event.replyEmbeds(Embed {
+                color = Colors.Success
+                title = "Closed"
+                description = "This ticket will be closed in five seconds!"
+            }).queue {
+                event.messageChannel.delete().queueAfter(5L, TimeUnit.SECONDS)
+            }
+        }
+
+        discord.listener<ButtonInteractionEvent> {
+            if (it.button.id != "ticket-claim")
+            {
+                return@listener
+            }
+
+            it.deferReply(true).queue()
+
+            val supportTicket = supportTicketRepository.findByChannelID(it.channelIdLong)
+            if (supportTicket == null)
+            {
+                it.hook.sendMessageEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "Not a Ticket"
+                    description = "This channel is not a support ticket!"
+                }).queue()
+                return@listener
+            }
+
+            if (supportTicket.assignedToUser != null)
+            {
+                it.hook.sendMessageEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "Already Claimed"
+                    description = "This support ticket has already been claimed!"
+                }).queue()
+                return@listener
+            }
+
+            supportTicket.assignedToUser = it.user.idLong
+            supportTicketRepository.save(supportTicket)
+
+            it.channel.asTextChannel()
+                .upsertPermissionOverride(it.member!!)
+                .grant(
+                    Permission.VIEW_CHANNEL,
+                    Permission.MESSAGE_HISTORY,
+                    Permission.MESSAGE_SEND,
+                    Permission.MESSAGE_MANAGE
+                )
+                .queue { _ ->
+                    supportRoleIDs.split(",")
+                        .map { role -> role.toLong() }
+                        .forEach { role ->
+                            val idRole = it.guildChannel.guild.getRoleById(role)
+                                ?: return@forEach
+
+                            it.channel.asTextChannel()
+                                .upsertPermissionOverride(idRole)
+                                .deny(Permission.VIEW_CHANNEL)
+                                .queue()
+                        }
+
+                    it.hook.sendMessageEmbeds(Embed {
+                        color = Colors.Success
+                        title = "Claimed"
+                        description = "You are now responsible for this ticket!"
+                    }).queue { _ ->
+                        it.channel.sendMessageEmbeds(Embed {
+                            color = Colors.Gold
+                            title = "Claimed"
+                            description =
+                                "A support staff member (${it.user.asMention}) has claimed your ticket. Please wait patiently for the support staff member to respond."
+                        }).queue()
+                    }
+                }
         }
 
         fun buildSupportResponseToButton(
@@ -176,8 +290,9 @@ class SupportTicketService(
                 "Punishment Support"
             ) {
                 short("punishment-id", "Punishment ID", requiredLength = 8..9)
-                short("unfair", "Respond if your punishment was unfair.")
-                paragraph("problem", "If yes, why?")
+
+                short("unfair", "Type \"yes\" if your punishment was unfair.", required = false)
+                paragraph("problem", "If yes, why?", required = false)
             }
         ) {
             val punishmentID = (getValue("punishment-id")?.asString ?: "none").removePrefix("#")
@@ -187,7 +302,8 @@ class SupportTicketService(
                 replyEmbeds(Embed {
                     color = Colors.Failure
                     title = "No Punishment ID"
-                    description = "We found no punishment with the ID you defined! Make sure you provide all of the letters and numbers in proper fashion!"
+                    description =
+                        "We found no punishment with the ID you defined! Make sure you provide all of the letters and numbers in proper fashion!"
                 }).setEphemeral(true).queue()
                 return@buildSupportResponseToButton
             }
@@ -202,16 +318,19 @@ class SupportTicketService(
 
                     description = ""
                     getValue("unfair")?.apply {
-                        description += "**User believes the punishment is unfair!**"
+                        if (asString.lowercase() == "yes")
+                        {
+                            description += "**User believes the punishment is unfair!**"
 
-                        getValue("problem")?.apply {
-                            description += asString
+                            getValue("problem")?.apply {
+                                description += asString
+                            }
                         }
                     }
 
                     field("Added At") {
                         inline = true
-                        value = punishment.addedAt
+                        value = dateFormat.format(Date(punishment.addedAt.toLong()))
                     }
 
                     field("Reason") {
@@ -253,7 +372,7 @@ class SupportTicketService(
         return null
     }
 
-    fun ModalInteractionEvent.createNewTicket(postConstruct: TextChannel.() -> Unit)
+    fun ModalInteractionEvent.createNewTicket(autonomous: Boolean = false, postConstruct: TextChannel.() -> Unit)
     {
         deferReply(true).queue()
 
@@ -289,12 +408,22 @@ class SupportTicketService(
         category
             .createTextChannel("support-${random.randomHexString()}")
             .apply {
+                if (autonomous)
+                {
+                    return@apply
+                }
+
                 supportRoleIDs.split(",")
                     .map { it.toLong() }
                     .forEach {
                         addRolePermissionOverride(
                             it,
-                            listOf(Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY, Permission.MESSAGE_SEND, Permission.MESSAGE_MANAGE),
+                            listOf(
+                                Permission.VIEW_CHANNEL,
+                                Permission.MESSAGE_HISTORY,
+                                Permission.MESSAGE_SEND,
+                                Permission.MESSAGE_MANAGE
+                            ),
                             listOf()
                         )
                     }
@@ -317,10 +446,27 @@ class SupportTicketService(
                     ownerID = user.idLong
                 )
 
-                textChannel.sendMessageEmbeds(Embed {
-                    color = Colors.Primary
-                    title = "Welcome"
-                    description = "A support representative will be with you soon."
+                textChannel.sendMessage(MessageCreate {
+                    embed {
+                        color = Colors.Primary
+                        title = "Welcome"
+                        description = "A support representative will be with you soon."
+                    }
+
+                    actionRow(
+                        button(
+                            "ticket-claim",
+                            label = "Claim",
+                            emoji = Emoji.fromUnicode("\uD83D\uDEC4"),
+                            style = ButtonStyle.SUCCESS
+                        ),
+                        button(
+                            "ticket-close",
+                            label = "Close",
+                            emoji = Emoji.fromUnicode("\uD83D\uDED1"),
+                            style = ButtonStyle.DANGER
+                        )
+                    )
                 }).queue {
                     postConstruct(textChannel)
                 }

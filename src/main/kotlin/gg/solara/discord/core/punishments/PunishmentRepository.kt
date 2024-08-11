@@ -13,5 +13,11 @@ interface PunishmentRepository : MongoRepository<Punishment, String>
         removedAt: String = "-1"
     ): List<Punishment>
 
+    fun findAllByTargetEqualsAndCategoryEquals(
+        target: String,
+        category: PunishmentCategory,
+        removedAt: String = "-1"
+    ): List<Punishment>
+
     fun findByIdStartingWith(id: String): Punishment?
 }

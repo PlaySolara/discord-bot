@@ -48,7 +48,8 @@ class SupportTicketService(
 {
     @Value("\${solara.support.roles.general}") lateinit var generalSupportRoleIDs: String
     @Value("\${solara.support.roles.punishments}") lateinit var punishmentsSupportRoleIDs: String
-    @Value("\${solara.support.roles.transactions}") lateinit var transactionsSupportRoleIDs: String
+    @Value("\${solara.support.roles.transactions}") lateinit var higherUpSupportRoleIDs: String
+
     @Value("\${solara.applications.staff.google-docs-link}") lateinit var staffApplicationsLink: String
 
     @Value("\${solara.support.categories}") lateinit var supportCategoryIDs: String
@@ -80,6 +81,7 @@ class SupportTicketService(
                 }).queue()
                 return@listener
             }
+
 
             if (supportTicket.assignedToUser != null && supportTicket.assignedToUser != event.user.idLong)
             {
@@ -129,11 +131,7 @@ class SupportTicketService(
                 return@listener
             }
 
-            val availableClaimRoles = supportTicket.roleIDs
-                .split(",")
-                .map { role -> role.toLong() }
-
-            if (it.member!!.roles.none { role -> role.idLong in availableClaimRoles })
+            if (it.member!!.roles.none { role -> supportTicket.roleIDs.contains(role.id) })
             {
                 it.hook.sendMessageEmbeds(Embed {
                     color = Colors.Failure
@@ -316,7 +314,7 @@ class SupportTicketService(
                 return@buildSupportResponseToButton
             }
 
-            createNewTicket(transactionsSupportRoleIDs) {
+            createNewTicket(higherUpSupportRoleIDs) {
                 sendMessageEmbeds(Embed {
                     color = Colors.Primary
                     title = "Transaction Details"
@@ -366,6 +364,17 @@ class SupportTicketService(
                 return@buildSupportResponseToButton
             }
 
+            if (punishment.removedBy != null)
+            {
+                replyEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "Inactive Punishment"
+                    description =
+                        "This punishment is inactive! Create a general support ticket instead."
+                }).setEphemeral(true).queue()
+                return@buildSupportResponseToButton
+            }
+
             createNewTicket(punishmentsSupportRoleIDs) {
                 sendMessageEmbeds(Embed {
                     color = Colors.Primary
@@ -378,7 +387,14 @@ class SupportTicketService(
                     getValue("unfair")?.apply {
                         if (asString.lowercase() == "yes")
                         {
-                            description += "**User believes the punishment is unfair!**"
+                            description += "**User believes the punishment is unfair!**\n\n"
+
+                            getValue("problem")?.apply {
+                                description += asString
+                            }
+                        } else
+                        {
+                            description += "**User is guilty!**\n\n"
 
                             getValue("problem")?.apply {
                                 description += asString
@@ -396,9 +412,29 @@ class SupportTicketService(
                         value = punishment.addedReason
                     }
 
+                    field("Server") {
+                        inline = true
+                        value = punishment.addedOn
+                    }
+
+                    val previous = punishmentRepository
+                        .findAllByTargetEqualsAndCategoryEquals(
+                            punishment.target, punishment.category
+                        )
+
+                    field("Previous Punishments") {
+                        inline = true
+                        value = "${previous.size} (${punishment.category})"
+                    }
+
+                    field("Server") {
+                        inline = true
+                        value = punishment.addedOn
+                    }
+
                     val username = redisTemplate.opsForHash<String, String>()
                         .get(
-                            "DataStore:UuidCache:UniqueId",
+                            "DataStore:UuidCache:UUID",
                             punishment.target
                         )
 

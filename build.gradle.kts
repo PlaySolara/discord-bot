@@ -36,20 +36,13 @@ tasks {
     }
 }
 
-fun RepositoryHandler.configureScalaRepository(dev: Boolean = false)
-{
-    maven("${property("artifactory_contextUrl")}/gradle-${if (dev) "dev" else "release"}") {
-        name = "scala"
-        credentials {
-            username = property("artifactory_user").toString()
-            password = property("artifactory_password").toString()
-        }
-    }
-}
-
 dependencies {
+    /**
+     * Required for the Minecraft package in the source code.
+     */
     implementation("gg.scala.aware:aware:1.2.1")
     implementation("gg.scala.commons:serializers:3.5.2")
+
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("gg.scala.store:shared:0.2.0")
     implementation("org.mongodb:mongodb-driver-legacy:5.1.1")
@@ -87,6 +80,18 @@ java {
         languageVersion = JavaLanguageVersion.of(17)
     }
 }
+
 kotlin {
     jvmToolchain(17)
+}
+
+fun RepositoryHandler.configureScalaRepository(dev: Boolean = false)
+{
+    maven("${property("artifactory_contextUrl")}/gradle-${if (dev) "dev" else "release"}") {
+        name = "scala"
+        credentials {
+            username = property("artifactory_user").toString()
+            password = property("artifactory_password").toString()
+        }
+    }
 }

@@ -1,4 +1,4 @@
-package gg.solara.discord.core.support.command
+package gg.solara.discord.core.minecraft.command
 
 import dev.minn.jda.ktx.events.onCommand
 import dev.minn.jda.ktx.messages.Embed

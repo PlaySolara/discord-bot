@@ -5,8 +5,6 @@ import dev.minn.jda.ktx.interactions.components.Modal
 import dev.minn.jda.ktx.interactions.components.button
 import dev.minn.jda.ktx.messages.Embed
 import dev.minn.jda.ktx.messages.MessageCreate
-import gg.scala.aware.Aware
-import gg.scala.aware.message.AwareMessage
 import gg.solara.discord.core.punishments.PunishmentRepository
 import gg.solara.discord.core.retrofit.tebex.TebexService
 import gg.solara.discord.core.utilities.Colors
@@ -44,7 +42,6 @@ class SupportTicketService(
     private val supportTicketRepository: SupportTicketRepository,
     private val punishmentRepository: PunishmentRepository,
     private val redisTemplate: RedisTemplate<String, String>,
-    private val redisAware: Aware<AwareMessage>,
     private val tebexService: TebexService,
     private val discord: JDA
 ) : InitializingBean

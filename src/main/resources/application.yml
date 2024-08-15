@@ -15,7 +15,7 @@ server:
       enabled: false
 solara:
   redis:
-    host: 100.94.170.57
+    host: "100.94.170.57"
     port: 6379
   applications:
     staff:

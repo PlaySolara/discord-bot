@@ -1,5 +1,6 @@
 package gg.solara.discord.core.discord
 
+import dev.minn.jda.ktx.interactions.commands.option
 import dev.minn.jda.ktx.interactions.commands.slash
 import dev.minn.jda.ktx.interactions.commands.updateCommands
 import gg.solara.discord.core.utilities.INFO_COLOUR
@@ -31,6 +32,16 @@ class DiscordCommandCatalogService(
                 description = "Send a support embed panel!"
             ) {
                 defaultPermissions = DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR)
+            }
+
+            slash(
+                name = "link",
+                description = "Connect your Minecraft & Discord accounts together!"
+            ) {
+                option<String>("code", "Your 7 character code.") {
+                    setMaxLength(7)
+                    setMinLength(7)
+                }
             }
         }.queue {
             logger.info { "${INFO_COLOUR}Updated all commands!" }

@@ -15,6 +15,7 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+    configureScalaRepository()
 }
 
 val springBootAdminVersion by extra("3.3.2")
@@ -35,7 +36,24 @@ tasks {
     }
 }
 
+fun RepositoryHandler.configureScalaRepository(dev: Boolean = false)
+{
+    maven("${property("artifactory_contextUrl")}/gradle-${if (dev) "dev" else "release"}") {
+        name = "scala"
+        credentials {
+            username = property("artifactory_user").toString()
+            password = property("artifactory_password").toString()
+        }
+    }
+}
+
 dependencies {
+    implementation("gg.scala.aware:aware:1.2.1")
+    implementation("gg.scala.commons:serializers:3.5.2")
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("gg.scala.store:shared:0.2.0")
+    implementation("org.mongodb:mongodb-driver-legacy:5.1.1")
+
     implementation("net.lingala.zip4j:zip4j:2.11.5")
     implementation("club.minnced:jda-ktx:0.11.0-beta.20")
     implementation("net.dv8tion:JDA:5.0.0-beta.24") {

@@ -14,6 +14,9 @@ server:
     whitelabel:
       enabled: false
 solara:
+  redis:
+    host: 100.94.170.57
+    port: 6379
   applications:
     staff:
       google-docs-link: "https://forms.gle/iA4jh9rtEWPwPsh99"
@@ -24,6 +27,8 @@ solara:
       punishments: "1265879962381189130,1265879722282192916,1265879638333460511"
       transactions: "1265879638333460511,1265879594423291976"
   discord:
+    link:
+      role: "1265895304532590753"
     guild: "1265729442551169094"
     token: "CHANGE"
   tebex:

@@ -5,6 +5,8 @@ import dev.minn.jda.ktx.interactions.components.Modal
 import dev.minn.jda.ktx.interactions.components.button
 import dev.minn.jda.ktx.messages.Embed
 import dev.minn.jda.ktx.messages.MessageCreate
+import gg.scala.aware.Aware
+import gg.scala.aware.message.AwareMessage
 import gg.solara.discord.core.punishments.PunishmentRepository
 import gg.solara.discord.core.retrofit.tebex.TebexService
 import gg.solara.discord.core.utilities.Colors
@@ -42,6 +44,7 @@ class SupportTicketService(
     private val supportTicketRepository: SupportTicketRepository,
     private val punishmentRepository: PunishmentRepository,
     private val redisTemplate: RedisTemplate<String, String>,
+    private val redisAware: Aware<AwareMessage>,
     private val tebexService: TebexService,
     private val discord: JDA
 ) : InitializingBean
@@ -204,10 +207,11 @@ class SupportTicketService(
                 return@listener
             }
 
-            it.replyEmbeds(Embed {
-                color = Colors.Gold
-                title = "\uD83D\uDCDC Staff Applications"
-                description = """
+            it.reply(MessageCreate {
+                embed {
+                    color = Colors.Gold
+                    title = "\uD83D\uDCDC Staff Applications"
+                    description = """
                     Requirements:
                     - Must be at least 15 years of age.
                     - Must have prior moderation experience.
@@ -220,6 +224,7 @@ class SupportTicketService(
 
                     Apply here: [Staff Applications]($staffApplicationsLink)
                 """.trimIndent()
+                }
             }).setEphemeral(true).queue()
         }
 
@@ -236,6 +241,15 @@ class SupportTicketService(
                     description = "Refer to the image for our media applications!"
                 }
                 files += FileUpload.fromData(File("assets", "requirements.png"))
+
+                actionRow(
+                    button(
+                        "create-media-application",
+                        emoji = Emoji.fromUnicode("\uD83D\uDCF9"),
+                        label = "Start Application",
+                        style = ButtonStyle.SUCCESS
+                    )
+                )
             }).setEphemeral(true).queue()
         }
 
@@ -272,6 +286,49 @@ class SupportTicketService(
                     title = "Topic"
 
                     description = getValue("topic")?.asString ?: "none"
+                    thumbnail = "https://skins.mcstats.com/bust/$uniqueId"
+
+                    footer {
+                        name = "Created by $username"
+                    }
+                }).queue()
+            }
+        }
+
+        buildSupportResponseToButton(
+            "create-media-application",
+            Modal(
+                "media-application",
+                "Media Application"
+            ) {
+                short("username", "In-Game Username", requiredLength = 1..16, required = true)
+                paragraph("media-links", "Media Links", required = true)
+            }
+        ) {
+            val username = getValue("username")?.asString ?: "none"
+            val uniqueId = redisTemplate.opsForHash<String, String>()
+                .get(
+                    "DataStore:UuidCache:Username",
+                    username.lowercase()
+                )
+
+            if (uniqueId == null)
+            {
+                replyEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "No Account"
+                    description = "We found no in-game account with the username you defined!"
+                }).setEphemeral(true).queue()
+                return@buildSupportResponseToButton
+            }
+
+            createNewTicket(generalSupportRoleIDs) {
+                sendMessageEmbeds(Embed {
+                    color = Colors.Primary
+                    title = "Media Application"
+
+                    description = "**Links:**\n"
+                    description += getValue("media-links")?.asString ?: "none"
                     thumbnail = "https://skins.mcstats.com/bust/$uniqueId"
 
                     footer {
@@ -410,11 +467,6 @@ class SupportTicketService(
                     field("Reason") {
                         inline = true
                         value = punishment.addedReason
-                    }
-
-                    field("Server") {
-                        inline = true
-                        value = punishment.addedOn
                     }
 
                     val previous = punishmentRepository

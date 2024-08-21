@@ -2,6 +2,7 @@ package gg.solara.discord.core.discord
 
 import dev.minn.jda.ktx.interactions.commands.option
 import dev.minn.jda.ktx.interactions.commands.slash
+import dev.minn.jda.ktx.interactions.commands.subcommand
 import dev.minn.jda.ktx.interactions.commands.updateCommands
 import gg.solara.discord.core.utilities.INFO_COLOUR
 import gg.solara.discord.core.utilities.logger
@@ -32,6 +33,16 @@ class DiscordCommandCatalogService(
                 description = "Send a support embed panel!"
             ) {
                 defaultPermissions = DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR)
+            }
+
+            slash(
+                name = "anticheatlogs",
+                description = "Get a dump of player logs!"
+            ) {
+                defaultPermissions = DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR)
+                option<String>("player", "A player's username.", required = true) {
+                    setMaxLength(16)
+                }
             }
 
             slash(

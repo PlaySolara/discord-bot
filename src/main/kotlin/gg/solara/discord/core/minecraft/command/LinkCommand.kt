@@ -42,6 +42,16 @@ class LinkCommand(
                     "discord-sync-codes:codes:$code"
                 )
 
+            if (matching == null)
+            {
+                event.hook.sendMessageEmbeds(Embed {
+                    color = Colors.Failure
+                    title = "Invalid Code"
+                    description = "You provided an invalid code!"
+                }).queue()
+                return@onCommand
+            }
+
             val uniqueId = UUID.fromString(matching)
 
             val discordProfile = DataStoreObjectControllerCache
